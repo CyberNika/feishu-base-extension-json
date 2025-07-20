@@ -1,23 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 import { bitable } from "@lark-base-open/js-sdk";
-import {
-  Button,
-  Divider,
-  JsonViewer,
-  Toast,
-  Typography,
-} from "@douyinfe/semi-ui";
-import { JsonEditor, UpdateFunctionProps } from "json-edit-react";
+import { Button, Divider, Form, Toast, Typography } from "@douyinfe/semi-ui";
+import { JsonEditor } from "json-edit-react";
 
 import "./App.css";
+import { FormApi } from "@douyinfe/semi-ui/lib/es/form";
 
 export default function App() {
-  const [selection, setSelection] =
-    useState<Awaited<ReturnType<typeof bitable.base.getSelection>>>();
-  const selectionJson = useMemo(() => {
-    return JSON.stringify(selection, null, 2);
-  }, [selection]);
+  const formApiRef =
+    useRef<FormApi<Awaited<ReturnType<typeof bitable.base.getSelection>>>>();
 
   const [selectedCellText, setSelectedCellText] = useState<any>();
   const selectedCellData = useMemo(() => {
@@ -57,7 +49,7 @@ export default function App() {
       } as const;
     }
   }, [selectedCellText]);
-  const syncSelectionCellText = async (s = selection) => {
+  const syncSelectionCellText = async (s = formApiRef.current?.getValues()) => {
     if (s?.tableId && s.recordId && s.fieldId) {
       const table = await bitable.base.getTableById(s.tableId);
 
@@ -79,10 +71,11 @@ export default function App() {
 
   useEffect(() => {
     const syncSelectionValue = async () => {
-      const selectionValue = await bitable.base.getSelection();
+      const selection = await bitable.base.getSelection();
 
-      setSelection(selectionValue);
-      syncSelectionCellText(selectionValue);
+      formApiRef.current?.setValues(selection);
+
+      syncSelectionCellText(selection);
     };
 
     syncSelectionValue();
@@ -111,8 +104,10 @@ export default function App() {
           <Button
             size="small"
             theme="solid"
-            disabled={!selection?.tableId}
+            disabled={!formApiRef.current?.getValue("tableId")}
             onClick={async () => {
+              const selection = formApiRef.current?.getValues();
+
               if (
                 selection?.tableId &&
                 selection.recordId &&
@@ -176,15 +171,19 @@ export default function App() {
       <Typography.Title heading={6} style={{ marginBottom: 6 }}>
         选区
       </Typography.Title>
-      <div style={{ overflow: "hidden" }}>
-        <JsonViewer
-          height={164}
-          width="100%"
-          showSearch={false}
-          value={selectionJson}
-          options={{ readOnly: true }}
-        />
-      </div>
+
+      <Form
+        labelPosition="inset"
+        getFormApi={(formApi) => {
+          formApiRef.current = formApi;
+        }}
+      >
+        <Form.Input label="baseId" field="baseId" readonly />
+        <Form.Input label="tableId" field="tableId" readonly />
+        <Form.Input label="viewId" field="viewId" readonly />
+        <Form.Input label="fieldId" field="fieldId" readonly />
+        <Form.Input label="recordId" field="recordId" readonly />
+      </Form>
     </main>
   );
 }
